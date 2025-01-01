@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Real-Time Account Data</title>
+    <style>
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        table, th, td {
+            border: 1px solid black;
+        }
+        th, td {
+            padding: 8px;
+            text-align: left;
+        }
+    </style>
+</head>
+<body>
+    <h1>Real-Time Account Data</h1>
+    <table id="accountTable">
+        <thead>
+            <tr>
+                <th>Account ID</th>
+                <th>Type</th>
+                <th>Balance</th>
+                <th>Equity</th>
+				<th>Profit</th>
+				<th>Drawdown</th>
+				<th>Date</th>
+            </tr>
+        </thead>
+        <tbody>
+            <!-- Data rows will be added here -->
+        </tbody>
+    </table>
+
+    <script>
+        // เชื่อมต่อกับ WebSocket server
+        const socket = new WebSocket('ws://127.0.0.1:8080');
+
+        socket.onopen = () => {
+            console.log("Connected to WebSocket server");
+        };
+
+        socket.onmessage = (event) => {
+            const data = JSON.parse(event.data);
+			console.log(data);
+			if (data.cmd === "INIT" && data.status === 400) {
+				// ส่งคำขอ init ไปยัง server
+				socket.send(JSON.stringify({
+					"keys": ["04M16JmlVlWvFGBWJN3I3ZcyM6iIvRkt"], 
+					"type": "Client",
+					"cmd": "INIT",
+				}));
+			}
+            if (data.cmd === "ACCINFO" && data.status === 200) {
+                // แสดงข้อมูลในตาราง
+                const accountData = data.data;
+                const table = document.getElementById('accountTable').getElementsByTagName('tbody')[0];
+                
+                // ลบข้อมูลเก่าทุกครั้งก่อนเพิ่มใหม่
+                table.innerHTML = '';
+                
+                // เพิ่มข้อมูลใหม่
+                accountData.forEach(account => {
+                    const row = table.insertRow();
+                    row.insertCell(0).textContent = account.accountNumber;
+                    row.insertCell(1).textContent = account.accountType;
+                    row.insertCell(2).textContent = account.Balance;
+                    row.insertCell(3).textContent = account.Equity;
+					row.insertCell(4).textContent = account.Profit;
+					row.insertCell(5).textContent = account.Drawdown;
+					row.insertCell(6).textContent = account.Date;
+                });
+            }
+        };
+
+        socket.onerror = (error) => {
+            console.error("WebSocket error:", error);
+        };
+
+        socket.onclose = () => {
+            console.log("Disconnected from WebSocket server");
+        };
+    </script>
+</body>
+</html>
