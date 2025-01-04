@@ -17,7 +17,7 @@ websocket.on('connection', (client) => {
     };
 
     websocketClients.push(client);
-    console.log(`${client.remoteAddress}:${client.remotePort} joined to Websocket Server.`);
+    console.log(`${client._socket.remoteAddress}:${client._socket.remotePort} joined to Websocket Server.`);
 
     // ส่งคำสั่งขอ key จาก client
     client.send(JSON.stringify({
@@ -36,7 +36,6 @@ websocket.on('connection', (client) => {
     }, 10 * 1000);
 
     client.on('message', (data) => {
-        //console.log(data.toString());
         if (isJson(data)) {
             let json = JSON.parse(data.toString());
             switch(json["cmd"]) {
