@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Real-Time Account Data</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        background-color: #f4f7fb;
+        /* สีพื้นหลังโทนอ่อน */
+        color: #333;
+        /* สีข้อความเข้ม */
+      }
+
+      h1 {
+        text-align: center;
+        color: #4a90e2;
+      }
+
+      /* รูปแบบ Dark Mode */
+      @media (prefers-color-scheme: dark) {
+        body {
+          background-color: #121212;
+          /* พื้นหลังสีดำ */
+          color: #e0e0e0;
+          /* ข้อความสีอ่อน */
+        }
+
+        h1 {
+          color: #bb86fc;
+          /* สีข้อความหัวข้อในโหมดมืด */
+        }
+
+        .grid-item {
+          background-color: #333333  !important;
+          /* สีพื้นหลังของกริดไอเทมในโหมดมืด */
+          color: #e0e0e0  !important;
+          /* ข้อความสีอ่อนในกริดไอเทม */
+          border: 1px solid #555555  !important;
+          /* กรอบในโหมดมืด */
+        }
+
+        .grid-item.over {
+          background-color: #444444  !important;
+          /* เมื่อมีการลากเข้าไปในกริดไอเทม */
+        }
+
+        .settings-container button {
+          background-color: #6200ee  !important;
+          /* ปุ่มในโหมดมืด */
+        }
+
+        .popup {
+          background-color: #333 !important;
+          /* ป๊อปอัพในโหมดมืด */
+          color: #e0e0e0 !important;
+          /* ข้อความในป๊อปอัพ */
+        }
+
+        .popup input {
+          background-color: #555555  !important;
+          /* พื้นหลังของ input ในป๊อปอัพ */
+          color: #e0e0e0  !important;
+          /* ข้อความใน input */
+          border: 1px solid #777777  !important;
+          /* กรอบ input */
+        }
+
+        .popup button {
+          background-color: #6200ee  !important;
+          /* ปุ่มในป๊อปอัพ */
+        }
+
+        .close-popup {
+          background-color: #ff0000  !important;
+          /* ปุ่มปิดป๊อปอัพ */
+        }
+      }
+
+      .grid-container {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 10px;
+        padding: 10px;
+        margin-top: 20px;
+      }
+
+      .grid-item {
+        background-color: #ffffff;
+        padding: 15px;
+        border: 1px solid #ddd;
+        text-align: center;
+        cursor: move;
+        user-select: none;
+        border-radius: 5px;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        transition: background-color 0.3s ease;
+      }
+
+      .grid-item.over {
+        background-color: #e0e0e0;
+      }
+
+      .grid-item.dragging {
+        opacity: 0.5;
+      }
+
+      .high-drawdown {
+        border-color: #ff0000 !important;
+        border-width: 2px;
+        /* กรอบแดง */
+      }
+
+      /* ปุ่มตั้งค่าที่ด้านล่าง */
+      .settings-container {
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        z-index: 1000;
+      }
+
+      .settings-container button {
+        padding: 10px 20px;
+        background-color: #4a90e2;
+        color: white;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .settings-container button:hover {
+        background-color: #357ab7;
+      }
+
+      /* SVG for settings icon */
+      .settings-container svg {
+        width: 20px;
+        height: 20px;
+        fill: white;
+      }
+
+      /* ป๊อปอัพ */
+      .popup {
+        display: none;
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background-color: #fff;
+        padding: 20px;
+        box-shadow: 0 0 15px rgba(0, 0, 0, 0.3);
+        border-radius: 10px;
+        z-index: 1001;
+        width: 300px;
+      }
+
+      .popup.active {
+        display: block;
+      }
+
+      .popup-header {
+        font-size: 18px;
+        margin-bottom: 10px;
+        font-weight: bold;
+      }
+
+      .popup input {
+        padding: 8px;
+        width: 100%;
+        margin-bottom: 10px;
+        border: 1px solid #ccc;
+        border-radius: 5px;
+      }
+
+      .popup button {
+        padding: 10px 20px;
+        background-color: #4a90e2;
+        color: white;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+      }
+
+      .popup button:hover {
+        background-color: #357ab7;
+      }
+
+      .close-popup {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        background-color: red;
+        color: white;
+        border: none;
+        border-radius: 50%;
+        width: 25px;
+        height: 25px;
+        cursor: pointer;
+        display: flex;
+        /* เพิ่ม flexbox เพื่อจัดตำแหน่ง */
+        align-items: center;
+        /* จัดให้ "x" อยู่ตรงกลางในแนวตั้ง */
+        justify-content: center;
+        /* จัดให้ "x" อยู่ตรงกลางในแนวนอน */
+        font-size: 16px;
+        /* ขยายขนาดตัวอักษร "x" */
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Real-Time Account Data</h1>
+    <div class="grid-container" id="accountGrid">
+      <!-- Data items will be added here -->
+    </div>
+    <!-- ปุ่มที่เปิด popup -->
+    <div class="settings-container">
+      <button onclick="openPopup()">
+        <!-- ใช้ SVG แทนข้อความ -->
+        <svg id="Layer_1" data-name="Layer 1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48">
+          <defs>
+            <style>
+              .cls-1 {
+                fill: none;
+                stroke: #fff;
+                stroke-linecap: round;
+                stroke-linejoin: round;
+                stroke-width: 2px
+              }
+            </style>
+          </defs>
+          <path class="cls-1" d="M44 28v-8h-5.56A14.89 14.89 0 0 0 37 16.61l4-3.92L35.31 7l-3.92 4A14.89 14.89 0 0 0 28 9.56V4h-8v5.56A14.89 14.89 0 0 0 16.61 11l-3.92-4L7 12.69l4 3.92A14.89 14.89 0 0 0 9.56 20H4v8h5.56A14.89 14.89 0 0 0 11 31.39l-4 3.92L12.69 41l3.92-4A14.89 14.89 0 0 0 20 38.44V44h8v-5.56A14.89 14.89 0 0 0 31.39 37l3.92 4L41 35.31l-4-3.92A14.89 14.89 0 0 0 38.44 28z" />
+          <circle class="cls-1" cx="24" cy="24" r="10" />
+          <path class="cls-1" d="M-418-146h680v680h-680z" />
+        </svg>
+      </button>
+    </div>
+    <!-- Popup Modal สำหรับการตั้งค่า Drawdown -->
+    <div class="popup" id="drawdownPopup">
+      <button class="close-popup" onclick="closePopup()">×</button>
+      <div class="popup-header">Set Drawdown Threshold</div>
+      <input type="number" id="drawdownThresholdInput" placeholder="Enter percentage (e.g. 30)" min="0" step="1">
+      <button onclick="setDrawdownThreshold()">Set Threshold</button>
+    </div>
+    <script>
+      let draggable = null;
+      let drawdownThreshold = localStorage.getItem('drawdownThreshold') || 30; // ใช้ค่าที่บันทึกไว้หรือ 30 หากไม่มี
+      const accountGrid = document.getElementById('accountGrid');
+      const accountMap = new Map();
+      // ฟังก์ชันเริ่มต้น WebSocket
+      const start = () => {
+        const socket = new WebSocket('ws://127.0.0.1:4000');
+        socket.onopen = () => {
+          console.log("Connected to WebSocket server");
+        };
+        socket.onmessage = (event) => {
+          const data = JSON.parse(event.data);
+          if (data.cmd === "INIT" && data.status === 400) {
+            socket.send(JSON.stringify({
+              "keys": ["KEY1", "KEY2"],
+              "type": "Client",
+              "cmd": "INIT",
+            }));
+          }
+          if (data.cmd === "INIT" && data.status === 200) {
+            socket.send(JSON.stringify({
+              "cmd": "ACCINFO",
+          }));
+          }
+          if (data.cmd === "ACCINFO" && data.status === 200) {
+            const accountData = data.data;
+            const savedOrder = JSON.parse(localStorage.getItem('accountOrder')) || [];
+            const accountOrder = new Map(savedOrder.map(account => [account.accountNumber, account]));
+            accountData.forEach(account => {
+              let gridItem = accountMap.get(account.accountNumber);
+              if (!gridItem) {
+                gridItem = document.createElement('div');
+                gridItem.classList.add('grid-item');
+                gridItem.setAttribute('draggable', 'true');
+                gridItem.addEventListener('dragstart', handleDragStart);
+                gridItem.addEventListener('dragenter', handleDragEnter);
+                gridItem.addEventListener('dragover', handleDragOver);
+                gridItem.addEventListener('dragleave', handleDragLeave);
+                gridItem.addEventListener('drop', handleDrop);
+                gridItem.addEventListener('dragend', handleDragEnd);
+                accountGrid.appendChild(gridItem);
+                accountMap.set(account.accountNumber, gridItem);
+              }
+              gridItem.innerHTML = `
+                        
+						<div>
+							<strong>Account ID:</strong>
+							<p> ${account.accountNumber}</p>
+						</div>
+						<div>
+							<strong>Type:</strong>
+							<p> ${account.accountType}</p>
+						</div>
+						<div>
+							<strong>Balance:</strong>
+							<p> ${account.Balance}</p>
+						</div>
+						<div>
+							<strong>Equity:</strong>
+							<p> ${account.Equity}</p>
+						</div>
+						<div>
+							<strong>Profit:</strong>
+							<p> ${account.Profit}</p>
+						</div>
+						<div>
+							<strong>Drawdown:</strong>
+							<p> ${account.Drawdown}</p>
+						</div>
+						<div>
+							<strong>Date:</strong>
+							<p> ${account.Date}</p>
+						</div>
+                    `;
+              // ตรวจสอบค่า Drawdown และเปลี่ยนสีของ grid-item ถ้ามากกว่าค่าที่ตั้งไว้
+              if (parseFloat(account.Drawdown) > drawdownThreshold) {
+                gridItem.classList.add('high-drawdown');
+              } else {
+                gridItem.classList.remove('high-drawdown');
+              }
+            });
+            reorderGrid(savedOrder);
+          }
+        };
+        socket.onerror = (error) => {
+          console.error("WebSocket error:", error);
+        };
+        socket.onclose = () => {
+          console.log("Disconnected from WebSocket server");
+          start();
+        };
+      };
+      // ปรับ placeholder ของ input ใน popup
+      document.getElementById('drawdownThresholdInput').placeholder = `your setting drawdown is ${drawdownThreshold}%`;
+
+      function handleDragStart({
+        target,
+        dataTransfer
+      }) {
+        if (target.className.includes('grid-item')) {
+          draggable = target;
+          draggable.classList.add('dragging');
+          dataTransfer.effectAllowed = 'move';
+          dataTransfer.setData('text', draggable.innerHTML);
+        }
+      }
+
+      function handleDragOver(evt) {
+        if (draggable) {
+          evt.preventDefault();
+          evt.dataTransfer.dropEffect = 'move';
+        }
+      }
+
+      function handleDragEnter({
+        target
+      }) {
+        if (draggable) {
+          target.classList.add('over');
+        }
+      }
+
+      function handleDragLeave({
+        target
+      }) {
+        if (draggable) {
+          target.classList.remove('over');
+        }
+      }
+
+      function handleDragEnd() {
+        draggable = null;
+        const cols = document.querySelectorAll('.grid-item');
+        cols.forEach((col) => col.classList.remove('over', 'dragging'));
+      }
+
+      function handleDrop(evt) {
+        if (draggable === null) return;
+        evt.stopPropagation();
+        evt.preventDefault();
+        if (draggable !== this) {
+          swapDom(draggable, this);
+          saveOrder();
+        }
+      }
+
+      function swapDom(a, b) {
+        let aParent = a.parentNode;
+        let bParent = b.parentNode;
+        let aHolder = document.createElement('div');
+        let bHolder = document.createElement('div');
+        aParent.replaceChild(aHolder, a);
+        bParent.replaceChild(bHolder, b);
+        aParent.replaceChild(b, aHolder);
+        bParent.replaceChild(a, bHolder);
+      }
+
+      function reorderGrid(order) {
+        const items = Array.from(accountGrid.children);
+        items.sort((a, b) => {
+          const aNumber = a.querySelector('p').textContent.trim();
+          const bNumber = b.querySelector('p').textContent.trim();
+          return order.findIndex(account => account.accountNumber === aNumber) - order.findIndex(account => account.accountNumber === bNumber);
+        });
+        items.forEach(item => accountGrid.appendChild(item));
+      }
+
+      function saveOrder() {
+        const accountOrder = Array.from(accountGrid.children).map(item => {
+          const accountNumber = item.querySelector('p').textContent.trim();
+          return {
+            accountNumber
+          };
+        });
+        localStorage.setItem('accountOrder', JSON.stringify(accountOrder));
+      }
+
+      function openPopup() {
+        document.getElementById('drawdownPopup').classList.add('active');
+      }
+
+      function closePopup() {
+        document.getElementById('drawdownPopup').classList.remove('active');
+      }
+
+      function setDrawdownThreshold() {
+        const thresholdValue = document.getElementById('drawdownThresholdInput').value;
+        if (thresholdValue && !isNaN(thresholdValue)) {
+          drawdownThreshold = parseFloat(thresholdValue);
+          localStorage.setItem('drawdownThreshold', drawdownThreshold);
+          // ปรับ placeholder ของ input ใน popup
+          document.getElementById('drawdownThresholdInput').placeholder = `your setting drawdown is ${drawdownThreshold}%`;
+          document.getElementById('drawdownThresholdInput').value = ``;
+          closePopup(); // ปิด popup หลังจากตั้งค่า
+        } else {
+          alert('Please enter a valid number');
+        }
+      }
+      start();
+    </script>
+  </body>
+</html>
