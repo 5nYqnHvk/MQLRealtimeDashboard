@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Live Accounts Dashboard</title>
+<style>
+  body { font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }
+  h1 { color: #333; }
+  table { border-collapse: collapse; width: 100%; background: #fff; }
+  th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
+  th { background-color: #eee; }
+  tbody tr:nth-child(even) { background-color: #f9f9f9; }
+</style>
+</head>
+<body>
+
+<h1>Live Accounts Dashboard</h1>
+<p>Status: <span id="status">Connecting...</span></p>
+<table>
+  <thead>
+    <tr>
+      <th>#</th>
+      <th>Name</th>
+      <th>Account</th>
+      <th>Deposit</th>
+      <th>Balance</th>
+      <th>Equity</th>
+      <th>Profit</th>
+      <th>Drawdown</th>
+      <th>P/D Ratio</th>
+      <th>Last Update</th>
+    </tr>
+  </thead>
+  <tbody id="account-table">
+    <!-- Data จะถูกเติมจาก JS -->
+  </tbody>
+</table>
+
+<script>
+  const statusEl = document.getElementById('status');
+  const tableBody = document.getElementById('account-table');
+
+  // เปลี่ยนเป็น URL ของ WebSocket server ของคุณ
+  const ws = new WebSocket('ws://localhost:8080/ws');
+
+  ws.onopen = () => {
+    statusEl.textContent = 'Connected';
+    statusEl.style.color = 'green';
+  };
+
+  ws.onclose = () => {
+    statusEl.textContent = 'Disconnected';
+    statusEl.style.color = 'red';
+  };
+
+  ws.onerror = (err) => {
+    console.error('WebSocket error:', err);
+    statusEl.textContent = 'Error';
+    statusEl.style.color = 'orange';
+  };
+
+  ws.onmessage = (event) => {
+    try {
+      const msg = JSON.parse(event.data);
+      if (msg.type === 'accounts' && Array.isArray(msg.data)) {
+        renderAccounts(msg.data);
+      }
+    } catch(e) {
+      console.error('Invalid message:', event.data);
+    }
+  };
+
+  function renderAccounts(accounts) {
+    tableBody.innerHTML = ''; // ล้างข้อมูลเก่า
+    let index = 0;
+    accounts.forEach(acc => {
+      index++;
+      const row = document.createElement('tr');
+      row.innerHTML = `
+        <td>${ index }</td>
+        <td>${acc.lastData.name}</td>
+        <td>${acc.account}</td>
+        <td>${acc.lastData.totalDeposit}</td>
+        <td>${acc.lastData.balance}</td>
+        <td>${acc.lastData.equity}</td>
+        <td>${acc.lastData.profit}</td>
+        <td>${acc.lastData.drawdown}</td>
+        <td>${acc.lastData.pdRatio}</td>
+        <td>${acc.lastUpdate}</td>
+      `;
+      tableBody.appendChild(row);
+    });
+  }
+</script>
+
+</body>
+</html>
