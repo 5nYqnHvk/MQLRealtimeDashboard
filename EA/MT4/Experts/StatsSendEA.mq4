@@ -208,11 +208,6 @@ void OnTimer() {
 //| คำนวณสถิติทั้งหมดจาก History                                     |
 //+------------------------------------------------------------------+
 void CalculateAllHistoryStats() {
-  if (!HistorySelect(0, TimeCurrent())) {
-    Print("HistorySelect failed");
-    return;
-  }
-
   // รีเซ็ตค่า
   totalDeposit = 0.0;
   totalWithdraw = 0.0;
@@ -227,81 +222,82 @@ void CalculateAllHistoryStats() {
   consecutiveLosses = 0;
   maxConsecutiveWins = 0;
   maxConsecutiveLosses = 0;
-
   double runningBalance = 0.0;
   double runningEquity = 0.0;
   double peakEquity = 0.0;
   maxDrawdownAmount = 0.0;
-
-  int totalDeals = HistoryDealsTotal();
-
-  for (int i = 0; i < totalDeals; i++) {
-    ulong dealTicket = HistoryDealGetTicket(i);
-    long dealType = HistoryDealGetInteger(dealTicket, DEAL_TYPE);
-    long dealEntry = HistoryDealGetInteger(dealTicket, DEAL_ENTRY);
+  
+  // MT4: วนลูปผ่าน Order History
+  int totalOrders = OrdersHistoryTotal();
+  
+  for (int i = 0; i < totalOrders; i++) {
+    if (!OrderSelect(i, SELECT_BY_POS, MODE_HISTORY)) continue;
     
-    double dealProfit = HistoryDealGetDouble(dealTicket, DEAL_PROFIT);
-    double dealCommission = HistoryDealGetDouble(dealTicket, DEAL_COMMISSION);
-    double dealSwap = HistoryDealGetDouble(dealTicket, DEAL_SWAP);
-    double totalDealProfit = dealProfit + dealCommission + dealSwap;
-
-    // คำนวณ Deposit/Withdraw
-    if (IsBalanceEntry(dealType)) {
-      if (totalDealProfit > 0) {
-        totalDeposit += totalDealProfit;
+    int orderType = OrderType();
+    double orderProfit = OrderProfit();
+    double orderCommission = OrderCommission();
+    double orderSwap = OrderSwap();
+    double totalOrderProfit = orderProfit + orderCommission + orderSwap;
+    
+    // คำนวณ Deposit/Withdraw (OP_BALANCE = 6)
+    if (orderType == 6) {
+      if (totalOrderProfit > 0) {
+        totalDeposit += totalOrderProfit;
       } else {
-        totalWithdraw += MathAbs(totalDealProfit);
+        totalWithdraw += MathAbs(totalOrderProfit);
       }
-      runningBalance += totalDealProfit;
+      runningBalance += totalOrderProfit;
     }
-    // คำนวณสถิติการเทรด
-    else if (dealEntry == DEAL_ENTRY_OUT || dealEntry == DEAL_ENTRY_INOUT) {
-      totalTrades++;
-      runningBalance += totalDealProfit;
-
-      if (totalDealProfit > 0) {
-        winTrades++;
-        grossProfit += totalDealProfit;
-        consecutiveWins++;
-        consecutiveLosses = 0;
+    // คำนวณสถิติการเทรด (OP_BUY=0, OP_SELL=1)
+    else if (orderType == OP_BUY || orderType == OP_SELL) {
+      // ตรวจสอบว่า order ปิดแล้ว
+      if (OrderCloseTime() > 0) {
+        totalTrades++;
+        runningBalance += totalOrderProfit;
         
-        if (totalDealProfit > largestWin)
-          largestWin = totalDealProfit;
-        if (consecutiveWins > maxConsecutiveWins)
-          maxConsecutiveWins = consecutiveWins;
-      } 
-      else if (totalDealProfit < 0) {
-        lossTrades++;
-        grossLoss += MathAbs(totalDealProfit);
-        consecutiveLosses++;
-        consecutiveWins = 0;
-        
-        if (MathAbs(totalDealProfit) > largestLoss)
-          largestLoss = MathAbs(totalDealProfit);
-        if (consecutiveLosses > maxConsecutiveLosses)
-          maxConsecutiveLosses = consecutiveLosses;
+        if (totalOrderProfit > 0) {
+          winTrades++;
+          grossProfit += totalOrderProfit;
+          consecutiveWins++;
+          consecutiveLosses = 0;
+          
+          if (totalOrderProfit > largestWin)
+            largestWin = totalOrderProfit;
+          if (consecutiveWins > maxConsecutiveWins)
+            maxConsecutiveWins = consecutiveWins;
+        } 
+        else if (totalOrderProfit < 0) {
+          lossTrades++;
+          grossLoss += MathAbs(totalOrderProfit);
+          consecutiveLosses++;
+          consecutiveWins = 0;
+          
+          if (MathAbs(totalOrderProfit) > largestLoss)
+            largestLoss = MathAbs(totalOrderProfit);
+          if (consecutiveLosses > maxConsecutiveLosses)
+            maxConsecutiveLosses = consecutiveLosses;
+        }
       }
     }
-
+    
     // คำนวณ Drawdown
     runningEquity = runningBalance;
     if (runningEquity > peakEquity)
       peakEquity = runningEquity;
-
     double currentDD = MathMax(0, peakEquity - runningEquity);
     if (currentDD > maxDrawdownAmount) {
       maxDrawdownAmount = currentDD;
       maxDrawdownPercent = (peakEquity > 0 ? (currentDD / peakEquity) * 100.0 : 0);
     }
   }
-
+  
   // คำนวณ Net Deposit
   netDeposit = totalDeposit - totalWithdraw;
   initialDeposit = netDeposit;
-
+  
   // อัพเดท max values
-  double currentEquity = AccountInfoDouble(ACCOUNT_EQUITY);
-  double currentBalance = AccountInfoDouble(ACCOUNT_BALANCE);
+  double currentEquity = AccountEquity();
+  double currentBalance = AccountBalance();
   
   if (currentEquity > maxEquity)
     maxEquity = currentEquity;
@@ -388,23 +384,6 @@ void UpdateCurrentStats() {
   accInfoJson["timestamp"] = (long)TimeGMT();
 
   accInfoJson.Serialize(accInfoData);
-}
-
-//+------------------------------------------------------------------+
-//| ตรวจสอบว่าเป็น Balance Entry                                    |
-//+------------------------------------------------------------------+
-bool IsBalanceEntry(long dealType) {
-  return (dealType == DEAL_TYPE_BALANCE ||
-          dealType == DEAL_TYPE_CREDIT ||
-          dealType == DEAL_TYPE_CHARGE ||
-          dealType == DEAL_TYPE_CORRECTION ||
-          dealType == DEAL_TYPE_BONUS ||
-          dealType == DEAL_TYPE_COMMISSION ||
-          dealType == DEAL_TYPE_COMMISSION_DAILY ||
-          dealType == DEAL_TYPE_COMMISSION_MONTHLY ||
-          dealType == DEAL_TYPE_COMMISSION_AGENT_DAILY ||
-          dealType == DEAL_TYPE_COMMISSION_AGENT_MONTHLY ||
-          dealType == DEAL_TYPE_INTEREST);
 }
 
 //+------------------------------------------------------------------+
@@ -549,7 +528,7 @@ void sendInit(ClientSocket *sender) {
   if (!is_init) {
     message_counter = 0;
 
-    string nonce = IntegerToString(GetTickCount64());
+    string nonce = IntegerToString(GetTickCount());
 
     CJAVal init_json;
     init_json["type"] = "EA";

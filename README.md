@@ -3,8 +3,6 @@
 ระบบ **Realtime Dashboard** สำหรับ MT4 MT5 EA  
 สามารถส่งข้อมูลจาก MT4 MT5 มายัง Server แล้วแสดงผลแบบเรียลไทม์ผ่าน API หรือ WebSocket
 
-**MT4 ยังทำไม่เสร็จ**
-
 ## วิธีใช้งาน
 
 ### ส่วน Server
@@ -50,8 +48,18 @@
 
 ### ส่วน EA
 
-1. ก๊อปไฟล์จากโฟลเดอร์ `EA/MT5/` ไปใส่ในโฟลเดอร์ **MQL5/Experts**
+#### MT5
+
+1. ก๊อปไฟล์จากโฟลเดอร์ `EA/MT5/` ไปใส่ในโฟลเดอร์ **MQL5/**
 2. เปิด MT5 แล้วลาก **StatsSendEA** เข้า Chart
+3. กำหนดค่า:
+   - Server IP/Port → ให้ตรงกับ CONFIG.PORT ของ Server (ค่าเริ่มต้น 7171)
+   - EA Name → ชื่อ EA ที่อยากให้แสดงใน Dashboard
+
+#### MT4
+
+1. ก๊อปไฟล์จากโฟลเดอร์ `EA/MT4/` ไปใส่ในโฟลเดอร์ **MQL4/**
+2. เปิด MT4 แล้วลาก **StatsSendEA** เข้า Chart
 3. กำหนดค่า:
    - Server IP/Port → ให้ตรงกับ CONFIG.PORT ของ Server (ค่าเริ่มต้น 7171)
    - EA Name → ชื่อ EA ที่อยากให้แสดงใน Dashboard
