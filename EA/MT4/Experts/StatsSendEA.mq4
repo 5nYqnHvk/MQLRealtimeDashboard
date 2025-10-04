@@ -20,6 +20,7 @@
 input string _SC1 = "------------------- Server Config -------------------";
 input string SC_IP = "127.0.0.1";
 input ushort SC_Port = 7171;
+input string SC_Secret = "";
 input string _SC2 = "---------------------------------------------------------------";
 input string _EA1 = "------------------- EA Config -------------------";
 input string EA_Name = "";
@@ -28,7 +29,7 @@ input string _EA2 = "-----------------------------------------------------------
 //+------------------------------------------------------------------+
 //| Global variables and constants                                   |
 //+------------------------------------------------------------------+
-ClientSocket *Socket = NULL;
+ClientSocket * Socket = NULL;
 
 CJAVal json;
 string data;
@@ -82,7 +83,7 @@ datetime lastCalculateTime = 0;
 //+------------------------------------------------------------------+
 int OnInit() {
   SC_Key = getKey();
-  if (SC_IP == NULL || SC_Port == NULL || StringLen(SC_Key) <= 0) 
+  if (SC_IP == NULL || SC_Port == NULL || StringLen(SC_Key) <= 0)
     return (INIT_FAILED);
 
   Print("--------------------- Account Info ----------------------");
@@ -146,7 +147,7 @@ void OnTimer() {
 
         if (json["cmd"] == "INIT" && json["status"] == 200) {
           session_token = json["session_token"].ToStr();
-          token_expire = (datetime)json["expire"].ToInt();
+          token_expire = (datetime) json["expire"].ToInt();
           is_init = true;
           message_counter = 0;
           Print("Session established. Token expires at: ", TimeToString(token_expire));
@@ -160,7 +161,7 @@ void OnTimer() {
         }
 
         if (json["counter"].ToInt() > 0) {
-          int server_counter = (int)json["counter"].ToInt();
+          int server_counter = (int) json["counter"].ToInt();
           if (server_counter != message_counter) {
             Print("Counter mismatch - possible replay attack!");
             message_counter = server_counter;
@@ -226,19 +227,19 @@ void CalculateAllHistoryStats() {
   double runningEquity = 0.0;
   double peakEquity = 0.0;
   maxDrawdownAmount = 0.0;
-  
+
   // MT4: วนลูปผ่าน Order History
   int totalOrders = OrdersHistoryTotal();
-  
+
   for (int i = 0; i < totalOrders; i++) {
     if (!OrderSelect(i, SELECT_BY_POS, MODE_HISTORY)) continue;
-    
+
     int orderType = OrderType();
     double orderProfit = OrderProfit();
     double orderCommission = OrderCommission();
     double orderSwap = OrderSwap();
     double totalOrderProfit = orderProfit + orderCommission + orderSwap;
-    
+
     // คำนวณ Deposit/Withdraw (OP_BALANCE = 6)
     if (orderType == 6) {
       if (totalOrderProfit > 0) {
@@ -254,24 +255,23 @@ void CalculateAllHistoryStats() {
       if (OrderCloseTime() > 0) {
         totalTrades++;
         runningBalance += totalOrderProfit;
-        
+
         if (totalOrderProfit > 0) {
           winTrades++;
           grossProfit += totalOrderProfit;
           consecutiveWins++;
           consecutiveLosses = 0;
-          
+
           if (totalOrderProfit > largestWin)
             largestWin = totalOrderProfit;
           if (consecutiveWins > maxConsecutiveWins)
             maxConsecutiveWins = consecutiveWins;
-        } 
-        else if (totalOrderProfit < 0) {
+        } else if (totalOrderProfit < 0) {
           lossTrades++;
           grossLoss += MathAbs(totalOrderProfit);
           consecutiveLosses++;
           consecutiveWins = 0;
-          
+
           if (MathAbs(totalOrderProfit) > largestLoss)
             largestLoss = MathAbs(totalOrderProfit);
           if (consecutiveLosses > maxConsecutiveLosses)
@@ -279,7 +279,7 @@ void CalculateAllHistoryStats() {
         }
       }
     }
-    
+
     // คำนวณ Drawdown
     runningEquity = runningBalance;
     if (runningEquity > peakEquity)
@@ -290,15 +290,15 @@ void CalculateAllHistoryStats() {
       maxDrawdownPercent = (peakEquity > 0 ? (currentDD / peakEquity) * 100.0 : 0);
     }
   }
-  
+
   // คำนวณ Net Deposit
   netDeposit = totalDeposit - totalWithdraw;
   initialDeposit = netDeposit;
-  
+
   // อัพเดท max values
   double currentEquity = AccountEquity();
   double currentBalance = AccountBalance();
-  
+
   if (currentEquity > maxEquity)
     maxEquity = currentEquity;
   if (currentBalance > maxBalance)
@@ -340,12 +340,12 @@ void UpdateCurrentStats() {
 
   // สร้าง JSON
   accInfoJson.Clear();
-  
+
   // ข้อมูลพื้นฐาน
   accInfoJson["name"] = EA_Name;
   accInfoJson["currency"] = AccountInfoString(ACCOUNT_CURRENCY);
-  accInfoJson["leverage"] = (int)AccountInfoInteger(ACCOUNT_LEVERAGE);
-  
+  accInfoJson["leverage"] = (int) AccountInfoInteger(ACCOUNT_LEVERAGE);
+
   // ข้อมูลการเงิน
   accInfoJson["deposit"] = DoubleToString(netDeposit, 2);
   accInfoJson["totalDeposit"] = DoubleToString(totalDeposit, 2);
@@ -357,12 +357,12 @@ void UpdateCurrentStats() {
   accInfoJson["margin"] = DoubleToString(margin, 2);
   accInfoJson["freeMargin"] = DoubleToString(freeMargin, 2);
   accInfoJson["marginLevel"] = DoubleToString(marginLevel, 2);
-  
+
   // Drawdown
   accInfoJson["drawdown"] = DoubleToString(maxDrawdownPercent, 2);
   accInfoJson["drawdownAmount"] = DoubleToString(maxDrawdownAmount, 2);
   accInfoJson["maxEquity"] = DoubleToString(maxEquity, 2);
-  
+
   // สถิติการเทรด
   accInfoJson["totalTrades"] = totalTrades;
   accInfoJson["winTrades"] = winTrades;
@@ -379,9 +379,9 @@ void UpdateCurrentStats() {
   accInfoJson["roi"] = DoubleToString(roi, 2);
   accInfoJson["maxConsecutiveWins"] = maxConsecutiveWins;
   accInfoJson["maxConsecutiveLosses"] = maxConsecutiveLosses;
-  
+
   accInfoJson["date"] = TimeToString(TimeGMT(), TIME_DATE | TIME_SECONDS);
-  accInfoJson["timestamp"] = (long)TimeGMT();
+  accInfoJson["timestamp"] = (long) TimeGMT();
 
   accInfoJson.Serialize(accInfoData);
 }
@@ -392,7 +392,11 @@ void UpdateCurrentStats() {
 string getKey() {
   long login = AccountInfoInteger(ACCOUNT_LOGIN);
   string server = AccountInfoString(ACCOUNT_SERVER);
-  string src = IntegerToString(login) + "|" + server;
+  string src;
+  if (StringLen(SC_Secret) > 0)
+    src = IntegerToString(login) + "|" + server + "|" + SC_Secret;
+  else
+    src = IntegerToString(login) + "|" + server;
 
   uchar src_bytes[];
   StringToCharArray(src, src_bytes, 0, WHOLE_ARRAY, CP_UTF8);
@@ -424,12 +428,12 @@ uchar HexCharToByte(uchar c) {
   return 0;
 }
 
-void HexStringToBytes(string hex, uchar &bytes[]) {
+void HexStringToBytes(string hex, uchar & bytes[]) {
   int len = StringLen(hex);
   ArrayResize(bytes, len / 2);
   for (int i = 0; i < len / 2; i++)
     bytes[i] = (HexCharToByte(StringGetCharacter(hex, i * 2)) << 4) |
-               HexCharToByte(StringGetCharacter(hex, i * 2 + 1));
+    HexCharToByte(StringGetCharacter(hex, i * 2 + 1));
 }
 
 string generateHMAC(string message, string hexKey) {
@@ -508,10 +512,10 @@ bool verifyHMAC(string received_data) {
   CJAVal temp_json;
 
   if (json["cmd"].ToStr() != "") temp_json["cmd"] = json["cmd"].ToStr();
-  if (json["status"].ToInt() > 0) temp_json["status"] = (int)json["status"].ToInt();
+  if (json["status"].ToInt() > 0) temp_json["status"] = (int) json["status"].ToInt();
   if (json["session_token"].ToStr() != "") temp_json["session_token"] = json["session_token"].ToStr();
-  if (json["expire"].ToInt() > 0) temp_json["expire"] = (long)json["expire"].ToInt();
-  if (json["counter"].ToInt() > 0) temp_json["counter"] = (int)json["counter"].ToInt();
+  if (json["expire"].ToInt() > 0) temp_json["expire"] = (long) json["expire"].ToInt();
+  if (json["counter"].ToInt() > 0) temp_json["counter"] = (int) json["counter"].ToInt();
   if (json["message"].ToStr() != "") temp_json["message"] = json["message"].ToStr();
   if (json["data"].ToStr() != "") temp_json["data"] = json["data"].ToStr();
 
@@ -524,7 +528,7 @@ bool verifyHMAC(string received_data) {
 //+------------------------------------------------------------------+
 //| Send Init                                                         |
 //+------------------------------------------------------------------+
-void sendInit(ClientSocket *sender) {
+void sendInit(ClientSocket * sender) {
   if (!is_init) {
     message_counter = 0;
 
@@ -534,8 +538,8 @@ void sendInit(ClientSocket *sender) {
     init_json["type"] = "EA";
     init_json["cmd"] = "INIT";
     init_json["nonce"] = nonce;
-    init_json["timestamp"] = (long)TimeGMT();
-    init_json["account"] = (long)AccountInfoInteger(ACCOUNT_LOGIN);
+    init_json["timestamp"] = (long) TimeGMT();
+    init_json["account"] = (long) AccountInfoInteger(ACCOUNT_LOGIN);
     init_json["server"] = AccountInfoString(ACCOUNT_SERVER);
 
     string temp_data;
@@ -561,7 +565,7 @@ void sendLogout() {
     logout_json["cmd"] = "LOGOUT";
     logout_json["session"] = session_token;
     logout_json["counter"] = message_counter;
-    logout_json["timestamp"] = (long)TimeGMT();
+    logout_json["timestamp"] = (long) TimeGMT();
 
     string temp_data;
     logout_json.Serialize(temp_data);
@@ -578,14 +582,14 @@ void sendLogout() {
 //+------------------------------------------------------------------+
 //| Send Account Data                                                 |
 //+------------------------------------------------------------------+
-void sendAccountData(ClientSocket *sender) {
+void sendAccountData(ClientSocket * sender) {
   message_counter++;
 
   CJAVal send_json;
   send_json["cmd"] = "ACCINFO";
   send_json["session"] = session_token;
   send_json["counter"] = message_counter;
-  send_json["timestamp"] = (long)TimeGMT();
+  send_json["timestamp"] = (long) TimeGMT();
   send_json["data"] = accInfoData;
 
   string temp_data;

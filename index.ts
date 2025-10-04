@@ -64,6 +64,7 @@ const CONFIG = {
   HOST: "0.0.0.0",
   PORT: 7171, // TCP PORT ใช้ใส่ใน EA
   API_PORT: 8080, // API PORT ใช้ยิง api ดึงค่าหรือใช้ ws ก็ได้
+  SECRET: "", // Secret ใช้ในการ Gen key ใส่อะไรก็ได้ หรือไม่ใส่ก็ได้
   SESSION_TIMEOUT: 24 * 60 * 60 * 1000, // เปลี่ยน session ทุกๆ 24 ชั่วโมง
   MESSAGE_TIMEOUT: 60 * 1000, // ไม่รับข้อความที่นานเกิน 60 วินาที
   MAX_COUNTER_GAP: 100,
@@ -144,7 +145,9 @@ function verifyHMAC(data: any, secret: string): boolean {
 
 function generateAccountKey(accountNumber: number, server: string): string {
   // ต้องทำแบบเดียวกับ MQL5: IntegerToString((int)login) + "|" + server
-  const src = `${accountNumber}|${server}`;
+  let src;
+  if (CONFIG.SECRET) src = `${accountNumber}|${server}|${CONFIG.SECRET}`;
+  else src = `${accountNumber}|${server}`;
 
   if (CONFIG.DEBUG) {
     console.log("🔍 Account Key Generation:");
