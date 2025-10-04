@@ -160,18 +160,6 @@ function generateAccountKey(accountNumber: number, server: string): string {
     .digest("hex")
     .toUpperCase();
 
-  if (CONFIG.DEBUG) {
-    console.log("   Generated key:", hash);
-    console.log(
-      "   Expected key:  C78DEAE9FAEA596B26C09A1BAC91346548B28DFC9FC0A055AC4DE5D5FD5D27BD"
-    );
-    console.log(
-      "   Match:",
-      hash ===
-        "C78DEAE9FAEA596B26C09A1BAC91346548B28DFC9FC0A055AC4DE5D5FD5D27BD"
-    );
-  }
-
   return hash;
 }
 
