@@ -174,6 +174,7 @@ void OnTimer() {
       Print("Session token expired. Re-authenticating...");
       session_token = "";
       is_init = false;
+      sendInit(Socket);
     }
 
     // คำนวณข้อมูลใหม่ทุก 60 วินาที
