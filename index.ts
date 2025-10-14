@@ -80,6 +80,7 @@ const sessions = new Map<string, SessionData>();
 const accounts = new Map<string, AccountInfo>();
 const usedNonces = new Set<string>();
 const accountDatabase = new Map<number, any>();
+const tcpClients = new Set<Socket>();
 
 //+------------------------------------------------------------------+
 //| Crypto Utilities                                                 |
@@ -523,6 +524,7 @@ async function saveToDatabase(
 function handleClient(client: Socket): void {
   const clientId = `${client.remoteAddress}:${client.remotePort}`;
   console.log(`\n🔌 New connection from ${clientId}`);
+  tcpClients.add(client);
 
   let buffer = "";
 
@@ -621,10 +623,12 @@ function handleClient(client: Socket): void {
 
   client.on("end", () => {
     console.log(`❌ Connection closed: ${clientId}`);
+    tcpClients.delete(client);
   });
 
   client.on("error", (err) => {
     console.error(`❌ Connection error from ${clientId}:`, err.message);
+    tcpClients.delete(client);
   });
 }
 
@@ -806,20 +810,35 @@ setInterval(() => {
 //+------------------------------------------------------------------+
 //| Graceful Shutdown                                                |
 //+------------------------------------------------------------------+
-process.on("SIGINT", () => {
+process.on("SIGINT", async () => {
   console.log("\n\n🛑 Shutting down server...");
+
+  // ส่ง SHUTDOWN ให้ทุก TCP client
+  console.log(`📢 Sending SHUTDOWN to ${tcpClients.size} clients...`);
+  for (const client of tcpClients) {
+    try {
+      client.write(
+        JSON.stringify({
+          cmd: "SHUTDOWN",
+          message: "Server is shutting down",
+        }) + "\r\n"
+      );
+    } catch (err) {
+      console.error("❌ Failed to send SHUTDOWN:", (err as Error).message);
+    }
+  }
+
+  // รอให้ส่งเสร็จก่อน (0.5 วิ)
+  await new Promise((resolve) => setTimeout(resolve, 500));
 
   for (const [token, session] of sessions.entries()) {
     console.log(`   Closing session for account ${session.account}`);
   }
 
   server.close(() => {
-    console.log("✅ Server closed");
+    console.log("✅ TCP Server closed");
+    apiServer.stop();
+    console.log("✅ API Server closed");
     process.exit(0);
   });
-});
-
-server.on("error", (err) => {
-  console.error("❌ Server error:", err);
-  process.exit(1);
 });

@@ -145,6 +145,10 @@ void OnTimer() {
           sendInit(Socket);
         }
 
+        if (json["cmd"] == "SHUTDOWN") {
+          ExpertRemove();
+        }
+
         if (json["cmd"] == "INIT" && json["status"] == 200) {
           session_token = json["session_token"].ToStr();
           token_expire = (datetime) json["expire"].ToInt();
